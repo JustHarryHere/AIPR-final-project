@@ -1,0 +1,8 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+logs/*.jsonl
+!logs/.gitkeep
+test*.py
+data/study_plan.json
