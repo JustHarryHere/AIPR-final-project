@@ -1,0 +1,46 @@
+[
+  {
+    "doc_id": "aipr_ke_hoach_giang_day",
+    "file": "Ke_Hoach_Giang_Day_AIPR.md",
+    "title": "Kế Hoạch Giảng Dạy & Bài Học AIPR (Tuần 1-8)",
+    "course_id": "AIPR",
+    "doc_type": "lesson_plan",
+    "version": "1.0",
+    "date": "2026-09-05",
+    "status": "official",
+    "owner": "GV_AIPR"
+  },
+  {
+    "doc_id": "aipr_quy_che_danh_gia",
+    "file": "Quy_Che_Danh_Gia.md",
+    "title": "Quy Chế Đánh Giá Môn Học AIPR (Bản Chính Thức)",
+    "course_id": "AIPR",
+    "doc_type": "grading_policy",
+    "version": "2.0",
+    "date": "2026-10-01",
+    "status": "official",
+    "owner": "Phong_Dao_Tao"
+  },
+  {
+    "doc_id": "aipr_du_thao_quy_che",
+    "file": "Du_Thao_Quy_Che_Danh_Gia.md",
+    "title": "Dự Thảo Quy Chế Đánh Giá Môn Học AIPR",
+    "course_id": "AIPR",
+    "doc_type": "grading_policy",
+    "version": "1.0",
+    "date": "2026-09-01",
+    "status": "draft",
+    "owner": "Phong_Dao_Tao"
+  },
+  {
+    "doc_id": "aipr_huong_dan_do_an",
+    "file": "Huong_Dan_Do_An_Cuoi_Ky.md",
+    "title": "Hướng Dẫn Đồ Án Cuối Kỳ Môn AIPR",
+    "course_id": "AIPR",
+    "doc_type": "final_project",
+    "version": "1.0",
+    "date": "2026-10-06",
+    "status": "official",
+    "owner": "GV_AIPR"
+  }
+]
