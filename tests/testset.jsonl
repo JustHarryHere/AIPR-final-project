@@ -1,0 +1,14 @@
+{"id": 1, "question": "Tuần 1 môn AIPR học những kỹ thuật xử lý văn bản nào?", "category": "in_scope", "expected_answer": "Tokenization, Stemming, Lemmatization, Stopwords removal, BoW, TF-IDF"}
+{"id": 2, "question": "Các mô hình phân loại văn bản truyền thống được giới thiệu ở tuần mấy?", "category": "in_scope", "expected_answer": "Tuần 2 (Naive Bayes, Logistic Regression, SVM)"}
+{"id": 3, "question": "Mô hình nhúng dense embedding nào được đề cập trong tuần 3?", "category": "in_scope", "expected_answer": "Jina Embeddings v3, OpenAI text-embedding-3"}
+{"id": 4, "question": "Khái niệm Retrieval-Augmented Generation (RAG) được học ở tuần nào?", "category": "in_scope", "expected_answer": "Tuần 4"}
+{"id": 5, "question": "Nguyên lý hoạt động của thuật toán BM25 và các tham số k1, b nằm ở tuần mấy?", "category": "in_scope", "expected_answer": "Tuần 5"}
+{"id": 6, "question": "Thời lượng tự học khuyến nghị cho tuần 6 là bao nhiêu giờ?", "category": "in_scope", "expected_answer": "5 giờ/tuần"}
+{"id": 7, "question": "Vòng lặp ReAct của Agent gồm những thành phần cốt lõi nào?", "category": "in_scope", "expected_answer": "Thought, Action (JSON tool call), Observation"}
+{"id": 8, "question": "Theo quy chế đánh giá chính thức, trọng số điểm giữa kỳ và cuối kỳ môn AIPR là bao nhiêu?", "category": "in_scope", "expected_answer": "Giữa kỳ 40% (0.4), cuối kỳ 60% (0.6)"}
+{"id": 9, "question": "Điểm giữa kỳ là 7.0, trọng số giữa kỳ 40%, cuối kỳ 60%, muốn đạt điểm tổng kết 8.0 thì cuối kỳ cần đạt mấy điểm?", "category": "calculation", "expected_answer": "8.67"}
+{"id": 10, "question": "Yêu cầu bắt buộc khi bảo vệ đồ án cuối kỳ môn AIPR chạy bằng lệnh gì?", "category": "in_scope", "expected_answer": "make setup && make demo"}
+{"id": 11, "question": "Hướng dẫn cách nấu phở bò gia truyền chuẩn vị Nam Định?", "category": "out_of_scope", "expected_answer": "no_answer"}
+{"id": 12, "question": "Học phí một tín chỉ của môn học AIPR năm nay là bao nhiêu tiền?", "category": "out_of_scope", "expected_answer": "no_answer"}
+{"id": 13, "question": "Lịch thi lại môn Triết học Mác Lênin vào ngày nào?", "category": "out_of_scope", "expected_answer": "no_answer"}
+{"id": 14, "question": "Thủ tục đăng ký tạm trú tại ký túc xá khu B như thế nào?", "category": "out_of_scope", "expected_answer": "no_answer"}
