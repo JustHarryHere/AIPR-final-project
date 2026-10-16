@@ -128,8 +128,6 @@ async def run_agent(
         if action.type == "final":
             answer = action.answer or "Hoàn thành."
             steps_log.append({"step": step + 1, "type": "final", "answer": answer})
-            if verbose:
-                print(f"[{step + 1}] Trả lời: {answer}")
             log_trace(question, steps_log, answer)
             return answer
 
