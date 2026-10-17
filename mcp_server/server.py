@@ -2,7 +2,7 @@ from mcp.server.mcpserver import MCPServer
 
 mcp = MCPServer(
     "study-assistant",
-    desciption="MCP Server for a lesson-plan assistant",
+    description="MCP Server for a lesson-plan assistant",
 )
 
 @mcp.tool()
