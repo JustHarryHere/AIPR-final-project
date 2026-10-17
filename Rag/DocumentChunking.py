@@ -96,7 +96,6 @@ class DocumentStore:
         return len(self.chunks)
 
 
-# ------------------------------------------------------------ heading strategy
 def _blocks(text: str, lo: int, hi: int) -> list[tuple[int, int]]:
     """(start, end) of each paragraph/list/table in text[lo:hi].
 
@@ -240,7 +239,7 @@ def pptx_to_markdown(path: str | Path, notes_label: str = "Ghi chú") -> str:
     NOT handled: text inside pictures/charts/SmartArt (needs OCR); hidden
     slides are included.
     """
-    from pptx import Presentation          # lazy: only needed for .pptx corpora
+    from pptx import Presentation     
 
     prs = Presentation(str(path))
     out: list[str] = []
