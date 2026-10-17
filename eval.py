@@ -30,6 +30,15 @@ def load_testset() -> list[dict]:
     return items
 
 
+def load_corpus_context() -> str:
+    docs = []
+    docs_dir = ROOT_DIR / "data" / "docs"
+    if docs_dir.exists():
+        for p in sorted(docs_dir.glob("*.md")):
+            docs.append(f"--- {p.name} ---\n" + p.read_text(encoding="utf-8"))
+    return "\n\n".join(docs)
+
+
 def load_judge_prompt() -> str:
     if not JUDGE_PROMPT_PATH.exists():
         return "Check if answer is faithful to context. Reply JSON: {\"faithful\": true, \"reason\": \"ok\"}"
@@ -40,8 +49,10 @@ def call_judge_llm(question: str, answer: str, context: str = "") -> dict:
     """Call LLM judge to evaluate faithfulness."""
     try:
         from llm import call_llm
+        if not context:
+            context = load_corpus_context()
         prompt_tmpl = load_judge_prompt()
-        prompt = prompt_tmpl.replace("{question}", question).replace("{answer}", answer).replace("{context}", context or "Kế hoạch bài giảng môn AIPR và quy chế đánh giá môn học.")
+        prompt = prompt_tmpl.replace("{question}", question).replace("{answer}", answer).replace("{context}", context)
         messages = [{"role": "user", "content": prompt}]
         res = call_llm(messages, max_tokens=300)
         content = res.content.strip()
@@ -53,7 +64,7 @@ def call_judge_llm(question: str, answer: str, context: str = "") -> dict:
         return json.loads(content)
     except Exception as exc:
         # Fallback heuristic judge if LLM API not reachable or format issue
-        is_refusal = any(w in answer.lower() for w in ["không có thông tin", "ngoài phạm vi", "không tìm thấy", "chưa được cập nhật"])
+        is_refusal = any(w in answer.lower() for w in ["không có thông tin", "ngoài phạm vi", "không tìm thấy", "chưa được cập nhật", "không có trong kế hoạch", "no_answer"])
         return {"faithful": True if is_refusal else len(answer) > 20, "reason": f"Heuristic check: {exc}"}
 
 
@@ -110,7 +121,7 @@ def main():
         c_delta = max(0, USAGE.get("completion_tokens", 0) - c_tokens_before)
 
         # Evaluation logic
-        is_refusal = any(w in answer.lower() for w in ["không có thông tin", "ngoài phạm vi", "không tìm thấy", "chưa được cập nhật", "no_answer"])
+        is_refusal = any(w in answer.lower() for w in ["không có thông tin", "ngoài phạm vi", "không tìm thấy", "chưa được cập nhật", "không có trong kế hoạch", "no_answer"])
         
         judge_res = call_judge_llm(question, answer)
         faithful = judge_res.get("faithful", True)
@@ -130,6 +141,8 @@ def main():
 
         print(f"{qid:<4} | {category:<13} | {faithful_str:<10} | {refusal_str:<8} | {q_snippet}")
 
+        calls_delta = max(1, USAGE.get("calls", 0) - calls_before)
+
         record = {
             "id": qid,
             "category": category,
@@ -139,6 +152,7 @@ def main():
             "refused": is_refusal,
             "judge_reason": judge_res.get("reason", ""),
             "latency": latency,
+            "calls": calls_delta,
             "prompt_tokens": p_delta,
             "completion_tokens": c_delta,
         }
@@ -148,6 +162,14 @@ def main():
     with open(log_file, "w", encoding="utf-8") as f:
         for r in results:
             f.write(json.dumps(r, ensure_ascii=False) + "\n")
+
+    # Save to CSV log (Bonus requirement: Đồ thị + CSV log chi tiết)
+    import csv
+    csv_file = LOGS_DIR / f"eval_run_{run_timestamp}.csv"
+    with open(csv_file, "w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=["id", "category", "question", "faithful", "refused", "latency", "calls", "prompt_tokens", "completion_tokens", "judge_reason"])
+        writer.writeheader()
+        writer.writerows(results)
 
     # Metrics computation
     faithfulness_rate = (in_scope_faithful / in_scope_count * 100) if in_scope_count > 0 else 100.0

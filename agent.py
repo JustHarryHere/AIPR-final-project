@@ -40,22 +40,25 @@ def log_trace(question: str, steps: list[dict], answer: str) -> None:
 
 
 async def default_call_tool(tool_name: str, args: dict[str, Any]) -> str:
-    """Fallback tool runner: connects to MCP server if present, else uses mock."""
+    """Tool runner: connects to MCP server via stdio, else uses local fallback."""
     server_file = Path(__file__).resolve().parent / "mcp_server" / "server.py"
     if server_file.is_file():
         try:
-            from mcp import Client, StdioServerParameters
+            from mcp import ClientSession, StdioServerParameters
+            from mcp.client.stdio import stdio_client
             server = StdioServerParameters(
                 command=sys.executable,
                 args=["-u", str(server_file)],
                 cwd=str(server_file.parent.parent),
             )
-            async with Client(server) as client:
-                res = await client.call_tool(tool_name, arguments=args)
-                content = getattr(res, "content", None)
-                if content:
-                    return "\n".join(getattr(c, "text", str(c)) for c in content)
-                return str(res)
+            async with stdio_client(server) as (read, write):
+                async with ClientSession(read, write) as client:
+                    await client.initialize()
+                    res = await client.call_tool(tool_name, arguments=args)
+                    content = getattr(res, "content", None)
+                    if content:
+                        return "\n".join(getattr(c, "text", str(c)) for c in content)
+                    return str(res)
         except Exception:
             pass
 
@@ -83,16 +86,17 @@ async def default_call_tool(tool_name: str, args: dict[str, Any]) -> str:
             from rag.retriever import search_lesson_plan
             q = str(args.get("query", ""))
             mode = str(args.get("mode", "hybrid"))
-            chunks = search_lesson_plan(query=q, mode=mode)
+            doc_type = args.get("doc_type")
+            chunks = search_lesson_plan(query=q, mode=mode, doc_type=doc_type)
             if not chunks:
                 return "[]"
             # Format chunks nicely for agent prompt
             formatted = [
                 {
-                    "doc_id": c["doc_id"],
-                    "chunk_id": c["chunk_id"],
-                    "score": round(c["score"], 3),
-                    "content": c["text"],
+                    "doc_id": c["doc_id"] if isinstance(c, dict) else getattr(c, "doc_id", ""),
+                    "chunk_id": c["chunk_id"] if isinstance(c, dict) else getattr(c, "chunk_id", ""),
+                    "score": round(c["score"] if isinstance(c, dict) else getattr(c, "score", 0.0), 3),
+                    "content": c["text"] if isinstance(c, dict) else getattr(c, "text", getattr(c, "content", "")),
                 }
                 for c in chunks
             ]

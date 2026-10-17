@@ -29,14 +29,15 @@ def reset_usage():
     for k in USAGE:
         USAGE[k] = 0
 
-def call_llm(messages, tools=None):
+def call_llm(messages, tools=None, max_tokens=None):
     global client
     if client is None:
         client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
     kwargs = {"model": MODEL, "messages": messages, "temperature": 0, "timeout": TIMEOUT}
-    if MAX_TOKENS:
-        kwargs["max_tokens"] = MAX_TOKENS
+    mt = max_tokens if max_tokens is not None else MAX_TOKENS
+    if mt:
+        kwargs["max_tokens"] = mt
     if tools:
         kwargs["tools"] = tools
     for attempt in range(RETRIES):

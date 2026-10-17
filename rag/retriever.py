@@ -116,8 +116,8 @@ class Retriever:
             texts = [c.content for c in self.chunks]
             self.bm25 = BM25(texts)
 
-    def search(self, query: str, mode: str = "hybrid", top_k: int = DEFAULT_TOP_K) -> list[SearchResult]:
-        """Search lesson plan chunks with version resolve and no_answer threshold."""
+    def search(self, query: str, mode: str = "hybrid", top_k: int = DEFAULT_TOP_K, doc_type: str | None = None) -> list[SearchResult]:
+        """Search lesson plan chunks with version resolve, metadata filter, and no_answer threshold."""
         if not query.strip() or not self.chunks or self.bm25 is None:
             return []
 
@@ -141,11 +141,13 @@ class Retriever:
             final_scores = fuse(dense_scores, bm25_sat, alpha=DEFAULT_ALPHA)
             thresh = FALLBACK_THRESHOLDS["hybrid"]
 
-        # 4. Filter by active version and threshold
+        # 4. Filter by active version, metadata filter (doc_type), and threshold
         scored_candidates = []
         for idx, score in enumerate(final_scores):
             chunk = self.chunks[idx]
             if chunk.doc_id not in self.active_doc_ids:
+                continue
+            if doc_type and chunk.metadata.get("doc_type") != doc_type:
                 continue
             if score >= thresh and (bm25_raw[idx] > 0 or dense_scores[idx] >= FALLBACK_THRESHOLDS["dense"]):
                 scored_candidates.append((score, chunk))
@@ -176,9 +178,9 @@ def get_retriever() -> Retriever:
     return _default_retriever
 
 
-def search_lesson_plan(query: str, mode: str = "hybrid", top_k: int = 4) -> list[SearchResult]:
-    """Contract for SV3 to import directly into MCP server."""
+def search_lesson_plan(query: str, mode: str = "hybrid", top_k: int = 4, doc_type: str | None = None) -> list[SearchResult]:
+    """Contract for SV3 to import directly into MCP server with metadata filter."""
     retriever = get_retriever()
-    return retriever.search(query, mode=mode, top_k=top_k)
+    return retriever.search(query, mode=mode, top_k=top_k, doc_type=doc_type)
 
 

@@ -4,5 +4,8 @@ __pycache__/
 *.pyc
 logs/*.jsonl
 !logs/.gitkeep
-test*.py
+/test*.py
+!tests/
+!tests/*.py
 data/study_plan.json
+ai-usage.md

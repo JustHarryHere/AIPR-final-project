@@ -1,17 +1,19 @@
-.PHONY: setup demo eval test clean
+.PHONY: setup demo eval test client clean
 
 setup:
 	pip install -r requirements.txt
 
 demo:
-	python main.py "Lập kế hoạch học tập môn AIPR tuần 5 chủ đề RAG Pipeline với 4 giờ tự học cho sinh viên sv01."
+	python main.py --demo
 
 eval:
 	python eval.py
 
 test:
-	python test_rag.py
-	python test.py
+	python tests/test_unit.py
+
+client:
+	python mcp_client.py
 
 clean:
 	find . -type d -name "__pycache__" -exec rm -rf {} +

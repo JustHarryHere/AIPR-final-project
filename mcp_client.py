@@ -4,7 +4,16 @@ import json
 import sys
 from pathlib import Path
 
-from mcp import Client, StdioServerParameters
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+        sys.stdin.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.stdio import stdio_client
 
 PROJECT_DIR = Path(__file__).resolve().parent
 SERVER_FILE = PROJECT_DIR / "mcp_server" / "server.py"
@@ -177,62 +186,64 @@ async def main():
 
     print("Đang kết nối MCP server...")
 
-    async with Client(server) as client:
-        response = await client.list_tools()
-        tools = response.tools
+    async with stdio_client(server) as (read, write):
+        async with ClientSession(read, write) as client:
+            await client.initialize()
+            response = await client.list_tools()
+            tools = response.tools
 
-        if not tools:
-            print("Server chưa cung cấp tool nào.")
-            return
+            if not tools:
+                print("Server chưa cung cấp tool nào.")
+                return
 
-        display_tools(tools)
+            display_tools(tools)
 
-        while True:
-            print("\n========== MENU ==========")
-            print("Nhập số thứ tự để chọn tool.")
-            print("Nhập list để xem lại danh sách.")
-            print("Nhập q để thoát.")
+            while True:
+                print("\n========== MENU ==========")
+                print("Nhập số thứ tự để chọn tool.")
+                print("Nhập list để xem lại danh sách.")
+                print("Nhập q để thoát.")
 
-            choice = input("\nLựa chọn: ").strip().lower()
+                choice = input("\nLựa chọn: ").strip().lower()
 
-            if choice == "q":
-                print("Đã thoát MCP client.")
-                break
+                if choice == "q":
+                    print("Đã thoát MCP client.")
+                    break
 
-            if choice == "list":
-                display_tools(tools)
-                continue
-
-            if not choice.isdigit():
-                print("Vui lòng nhập số thứ tự, list hoặc q.")
-                continue
-
-            index = int(choice) - 1
-
-            if index < 0 or index >= len(tools):
-                print("Số thứ tự không tồn tại.")
-                continue
-
-            tool = tools[index]
-
-            try:
-                arguments = prompt_arguments(tool)
-                print("\nArguments sẽ gửi:")
-                print(json.dumps(arguments, ensure_ascii=False, indent=2))
-
-                confirm = input("Gọi tool? (y/n): ").strip().lower()
-                if confirm not in ("y", "yes"):
-                    print("Đã hủy.")
+                if choice == "list":
+                    display_tools(tools)
                     continue
 
-                result = await client.call_tool(
-                    tool.name,
-                    arguments=arguments,
-                )
-                display_result(result)
+                if not choice.isdigit():
+                    print("Vui lòng nhập số thứ tự, list hoặc q.")
+                    continue
 
-            except Exception as exc:
-                print(f"Lỗi khi gọi tool: {type(exc).__name__}: {exc}")
+                index = int(choice) - 1
+
+                if index < 0 or index >= len(tools):
+                    print("Số thứ tự không tồn tại.")
+                    continue
+
+                tool = tools[index]
+
+                try:
+                    arguments = prompt_arguments(tool)
+                    print("\nArguments sẽ gửi:")
+                    print(json.dumps(arguments, ensure_ascii=False, indent=2))
+
+                    confirm = input("Gọi tool? (y/n): ").strip().lower()
+                    if confirm not in ("y", "yes"):
+                        print("Đã hủy.")
+                        continue
+
+                    result = await client.call_tool(
+                        tool.name,
+                        arguments=arguments,
+                    )
+                    display_result(result)
+
+                except Exception as exc:
+                    print(f"Lỗi khi gọi tool: {type(exc).__name__}: {exc}")
 
 
 if __name__ == "__main__":

@@ -5,15 +5,31 @@ import json
 from pathlib import Path
 import uuid #tạo ID riêng cho mỗi mục học
 
-DATA_DIR=Path(__file__).resolve().parents[1] / "data"
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
+ROOT_DIR = Path(__file__).resolve().parents[1]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
+DATA_DIR = ROOT_DIR / "data"
 COURSE_CATALOG_FILE = DATA_DIR / "course_catalog.json"
 STUDY_PLAN_FILE = DATA_DIR / "study_plan.json"
 
-from mcp.server.mcpserver import MCPServer
-from mcp import StdioServerParameters, Client
+try:
+    from rag.retriever import search_lesson_plan as _search
+except Exception:
+    _search = None
 
-mcp = MCPServer("study-assistant",
-    description="MCP Server for a lesson-plan assistant",
+from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP(
+    "study-assistant",
+    instructions="MCP Server for a lesson-plan assistant",
 )
 
 @mcp.tool()
@@ -162,8 +178,8 @@ def create_study_plan_item(
     }
 
 @mcp.tool()
-def search_lesson_plan(query: str, mode: str = "hybrid") -> dict:
-    """Search lesson-plan documents using dense or hybrid retrieval."""
+def search_lesson_plan(query: str, mode: str = "hybrid", doc_type: str | None = None) -> dict:
+    """Search lesson-plan documents using dense or hybrid retrieval with optional metadata filter (doc_type)."""
 
     if not query.strip():
         return {
@@ -172,20 +188,19 @@ def search_lesson_plan(query: str, mode: str = "hybrid") -> dict:
         }
 
     if mode not in ("dense", "hybrid"):
-        return {
-            "ok": False,
-            "error": "Invalid mode. Use 'dense' or 'hybrid'.",
-        }
+        mode = "hybrid"
 
     try:
-        from rag.retriever import search_lesson_plan as _search
-        results = _search(query=query, mode=mode)
+        if _search is None:
+            return {"ok": False, "error": "Retriever not initialized", "results": []}
+        results = _search(query=query, mode=mode, doc_type=doc_type)
         return {
             "ok": True,
             "query": query,
             "mode": mode,
+            "doc_type_filter": doc_type,
             "count": len(results),
-            "results": results,
+            "results": [r.__dict__ if hasattr(r, "__dict__") else r for r in results],
         }
     except Exception as exc:
         return {
@@ -223,4 +238,4 @@ def list_study_plan(student_id: str) -> dict:
 
 
 if __name__ == "__main__":
-    mcp.run()  
+    mcp.run(transport="stdio")  
