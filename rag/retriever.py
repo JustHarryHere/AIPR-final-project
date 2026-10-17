@@ -95,7 +95,10 @@ class Retriever:
             if not fpath.exists():
                 continue
             text = fpath.read_text(encoding="utf-8")
-            # Chunking theo heading ##
+            # Lý do chọn chiến lược Chunking theo Heading Markdown (##):
+            # 1. Lesson plan và quy chế môn học có cấu trúc phân cấp tự nhiên theo từng tuần/mục độc lập (## Tuần 1, ## Tuần 2,...).
+            # 2. Cắt theo tiêu đề ## giúp mỗi chunk đại diện trọn vẹn cho 1 đơn vị chủ đề học tập, không bị cắt ngang giữa câu.
+            # 3. Kích thước mỗi chunk đạt mức tối ưu (100-300 tokens) để vừa đủ ngữ cảnh cho LLM grounding vừa tiết kiệm prompt token.
             sections = text.split("\n## ")
             for idx, sec in enumerate(sections):
                 content = sec if idx == 0 else "## " + sec

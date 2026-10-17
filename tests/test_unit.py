@@ -8,7 +8,7 @@ if str(ROOT) not in sys.path:
 import unittest
 from schemas import Action, parse_action
 from rag.text import tokenize
-from rag.calc import calc_required_score, calc_workload
+from mcp_server.server import calc_required_score, calc_workload
 from rag.chunking import Document, chunk_by_heading
 
 

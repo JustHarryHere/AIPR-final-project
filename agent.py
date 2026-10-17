@@ -109,7 +109,7 @@ async def default_call_tool(tool_name: str, args: dict[str, Any]) -> str:
 
     try:
         if tool_name == "calc_required_score":
-            from rag.calc import calc_required_score
+            from mcp_server.server import calc_required_score
             res = calc_required_score(
                 midterm=float(args.get("midterm", 0)),
                 w_mid=float(args.get("w_mid", 0.4)),
@@ -119,7 +119,7 @@ async def default_call_tool(tool_name: str, args: dict[str, Any]) -> str:
             return json.dumps(res.get("data", res), ensure_ascii=False)
 
         elif tool_name == "calc_workload":
-            from rag.calc import calc_workload
+            from mcp_server.server import calc_workload
             res = calc_workload(
                 hours_per_week=float(args.get("hours_per_week", 4)),
                 from_week=int(args.get("from_week", 1)),
