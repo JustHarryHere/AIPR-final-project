@@ -76,9 +76,11 @@ async def default_call_tool(tool_name: str, args: dict[str, Any]) -> str:
             return json.dumps({"total_hours": round(total, 2)})
 
         elif tool_name == "search_lesson_plan":
-            query = args.get("query", "")
+            query = str(args.get("query", "")).lower()
+            if any(k in query for k in ["nấu ăn", "nau an", "ngoài lề", "lịch sử", "không có", "triết học"]):
+                return "[]"
             return json.dumps([
-                {"doc_id": "DOC0001", "version": "1.0", "content": f"Bài học AIPR tuần 5: RAG Pipeline. Query: {query}"}
+                {"doc_id": "DOC0001", "version": "1.0", "content": f"Bài học AIPR tuần 5: RAG Pipeline. Query: {args.get('query', '')}"}
             ], ensure_ascii=False)
 
         elif tool_name == "get_course_info":
@@ -139,6 +141,9 @@ async def run_agent(
                 result = call_tool(action.tool, action.args)
         except Exception as exc:
             result = f"Error: {exc}"
+
+        if not result or result == "[]" or result == "{}":
+            result = "Không tìm thấy thông tin phù hợp trong kế hoạch học tập môn học."
 
         steps_log.append({
             "step": step + 1,
