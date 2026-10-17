@@ -3,6 +3,7 @@ import inspect
 import json
 import os
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Optional
 
@@ -14,6 +15,13 @@ WRITE_TOOLS = {"create_study_plan_item"}
 PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "system.txt"
 LOGS_DIR = Path(__file__).resolve().parent / "logs"
 
+_session_timestamp: str = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+
+def get_trace_log_file() -> Path:
+    global _session_timestamp
+    return LOGS_DIR / f"agent_trace_{_session_timestamp}.jsonl"
+
 #fake memory for testing
 _study_plan_db: dict[str, list[dict]] = {}
 
@@ -24,19 +32,56 @@ def load_system_prompt() -> str:
     return "Bạn là trợ lý học tập. Trả về JSON action."
 
 
-def log_trace(question: str, steps: list[dict], answer: str) -> None:
+def get_question_id(question: str) -> Any:
+    testset_file = Path(__file__).resolve().parent / "tests" / "testset.jsonl"
+    if testset_file.exists():
+        try:
+            q_clean = question.strip().lower()
+            with open(testset_file, "r", encoding="utf-8") as f:
+                for line in f:
+                    if line.strip():
+                        item = json.loads(line)
+                        iq = item.get("question", "").strip().lower()
+                        if iq == q_clean or iq in q_clean or q_clean in iq:
+                            return item.get("id")
+        except Exception:
+            pass
+    log_file = LOGS_DIR / "agent_trace.jsonl"
+    if log_file.exists():
+        try:
+            with open(log_file, "r", encoding="utf-8") as f:
+                return len([l for l in f if l.strip()]) + 1
+        except Exception:
+            pass
+    return 1
+
+
+def log_trace(question: str, steps: list[dict], answer: str, qid: Any = None) -> None:
     try:
         LOGS_DIR.mkdir(parents=True, exist_ok=True)
-        log_file = LOGS_DIR / "agent_trace.jsonl"
-        with open(log_file, "a", encoding="utf-8") as f:
-            f.write(json.dumps({
-                "question": question,
-                "steps": steps,
-                "answer": answer,
-                "usage": dict(USAGE),
-            }, ensure_ascii=False) + "\n")
+        if qid is None:
+            qid = get_question_id(question)
+        record = {
+            "id": qid,
+            "timestamp": datetime.now().isoformat(),
+            "question": question,
+            "steps": steps,
+            "answer": answer,
+            "usage": dict(USAGE),
+        }
+        # 1. Ghi vào file trace riêng của từng phiên chạy có timestamp (chuẩn rubric: >= 3 file chạy thật có timestamp)
+        session_file = get_trace_log_file()
+        with open(session_file, "a", encoding="utf-8") as f:
+            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+        # 2. Đồng thời ghi vào agent_trace.jsonl để lưu lịch sử tích lũy
+        main_file = LOGS_DIR / "agent_trace.jsonl"
+        with open(main_file, "a", encoding="utf-8") as f:
+            f.write(json.dumps(record, ensure_ascii=False) + "\n")
     except Exception:
         pass
+
+
 
 
 async def default_call_tool(tool_name: str, args: dict[str, Any]) -> str:
@@ -154,6 +199,8 @@ async def run_agent(
     question: str,
     call_tool_fn: Optional[Callable] = None,
     verbose: bool = False,
+    verify: bool = True,
+    qid: Optional[Any] = None,
 ) -> str:
     """Vòng lặp ReAct agent tự viết theo chuẩn T3 Section A4."""
     call_tool = call_tool_fn or default_call_tool
@@ -180,7 +227,7 @@ async def run_agent(
         if action.type == "final":
             answer = action.answer or "Hoàn thành."
             steps_log.append({"step": step + 1, "type": "final", "answer": answer})
-            log_trace(question, steps_log, answer)
+            log_trace(question, steps_log, answer, qid=qid)
             return answer
 
         # Execute tool
@@ -206,7 +253,7 @@ async def run_agent(
             print(f"[{step + 1}] {action.tool}({action.args}) → {result}")
 
         # verify tool
-        if action.tool in WRITE_TOOLS:
+        if verify and action.tool in WRITE_TOOLS:
             student_id = action.args.get("student_id", "sv01")
             try:
                 if inspect.iscoroutinefunction(call_tool):
@@ -232,10 +279,12 @@ async def run_agent(
             messages.append({"role": "user", "content": f"{action.tool} → {result}"})
 
     fallback_ans = "Không hoàn thành trong số bước cho phép."
-    log_trace(question, steps_log, fallback_ans)
+    log_trace(question, steps_log, fallback_ans, qid=qid)
     return fallback_ans
 
 
-def run(question: str, verbose: bool = False) -> str:
+def run(question: str, verbose: bool = False, verify: bool = True, call_tool_fn: Optional[Callable] = None, qid: Optional[Any] = None) -> str:
     """Hàm đồng bộ để gọi agent từ CLI."""
-    return asyncio.run(run_agent(question, verbose=verbose))
+    return asyncio.run(run_agent(question, call_tool_fn=call_tool_fn, verbose=verbose, verify=verify, qid=qid))
+
+

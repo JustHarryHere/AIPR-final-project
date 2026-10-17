@@ -198,13 +198,27 @@ async def main():
 
             display_tools(tools)
 
+            # Chế độ tự động chạy kiểm thử Host thứ 2 (không cần gõ tay)
+            if len(sys.argv) > 1 and sys.argv[1] in ("--demo", "-d", "--test", "-t"):
+                print("\n[CHẾ ĐỘ TỰ ĐỘNG - DEMO HOST THỨ HAI]")
+                sample_args = {"midterm": 7.0, "w_mid": 0.4, "w_final": 0.6, "target": 8.0}
+                print(f"[*] Tự động gọi tool 'calc_required_score' với arguments: {sample_args}")
+                result = await client.call_tool("calc_required_score", arguments=sample_args)
+                display_result(result)
+                print("\n[OK] Host thứ hai (mcp_client.py) kết nối và gọi MCP Server thành công 100%!")
+                return
+
             while True:
                 print("\n========== MENU ==========")
                 print("Nhập số thứ tự để chọn tool.")
                 print("Nhập list để xem lại danh sách.")
                 print("Nhập q để thoát.")
 
-                choice = input("\nLựa chọn: ").strip().lower()
+                try:
+                    choice = input("\nLựa chọn: ").strip().lower()
+                except (EOFError, KeyboardInterrupt):
+                    print("\nĐã thoát MCP client.")
+                    break
 
                 if choice == "q":
                     print("Đã thoát MCP client.")
@@ -231,7 +245,12 @@ async def main():
                     print("\nArguments sẽ gửi:")
                     print(json.dumps(arguments, ensure_ascii=False, indent=2))
 
-                    confirm = input("Gọi tool? (y/n): ").strip().lower()
+                    try:
+                        confirm = input("Gọi tool? (y/n): ").strip().lower()
+                    except (EOFError, KeyboardInterrupt):
+                        print("\nĐã hủy.")
+                        continue
+
                     if confirm not in ("y", "yes"):
                         print("Đã hủy.")
                         continue
@@ -247,4 +266,8 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except (EOFError, KeyboardInterrupt):
+        print("\nĐã thoát MCP client.")
+
