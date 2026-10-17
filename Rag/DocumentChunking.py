@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import re
 from dataclasses import dataclass, field
@@ -8,6 +10,9 @@ from typing import Optional
 HEADING_RE = re.compile(r"^#{1,6}\s+(.*)$", re.MULTILINE)
 TABLE_RE = re.compile(r"^\s*\|")
 META_KEYS = ("course_id", "doc_type", "version", "date", "status", "owner")
+SLIDE_RE = re.compile(r"^Slide (\d+)\b")
+SUPPORTED_EXTENSIONS = (".md", ".txt", ".pptx")
+PIPELINE_VERSION = 2
 
 @dataclass
 class Document:
@@ -28,6 +33,7 @@ class DocumentChunk:
     metadata: dict = field(default_factory=dict)
     embedding: Optional[list[float]] = None
 
+
 def chunk_document(document: Document, chunk_size: int = 512, overlap: int = 64) -> list[DocumentChunk]:
     """Strategy "fixed": character window with overlap (exactly as in class)."""
     step = chunk_size - overlap
@@ -42,12 +48,8 @@ def chunk_document(document: Document, chunk_size: int = 512, overlap: int = 64)
                 chunk_id=f"{document.doc_id}-chunk-{chunk_index}",
                 doc_id=document.doc_id,
                 chunk_index=chunk_index,
-                metadata={
-                    "source": document.source,
-                    "title": document.title,
-                    "start": start, 
-                    "strategy": "fixed",
-                    **document.metadata},
+                metadata={"source": document.source, "title": document.title,
+                          "start": start, "strategy": "fixed", **document.metadata},
             )
         )
     return chunks
@@ -65,6 +67,7 @@ def tag_sections(document: Document, chunks: list[DocumentChunk]) -> None:
             else:
                 break
         chunk.metadata["section"] = section
+
 
 @dataclass
 class DocumentStore:
@@ -92,6 +95,8 @@ class DocumentStore:
     def count(self) -> int:
         return len(self.chunks)
 
+
+# ------------------------------------------------------------ heading strategy
 def _blocks(text: str, lo: int, hi: int) -> list[tuple[int, int]]:
     """(start, end) of each paragraph/list/table in text[lo:hi].
 
@@ -120,6 +125,15 @@ def _blocks(text: str, lo: int, hi: int) -> list[tuple[int, int]]:
     if cur_start is not None:
         blocks.append((cur_start, cur_end))
     return blocks
+
+
+def _slide_meta(document: Document, section: str) -> dict:
+    """{"slide": N} for converted decks, so citations can say "slide 7"."""
+    if document.metadata.get("source_format") == "pptx":
+        m = SLIDE_RE.match(section)
+        if m:
+            return {"slide": int(m.group(1))}
+    return {}
 
 
 def chunk_by_heading(document: Document, max_chars: int = 800) -> list[DocumentChunk]:
@@ -161,7 +175,7 @@ def chunk_by_heading(document: Document, max_chars: int = 800) -> list[DocumentC
                 chunk_index=idx,
                 metadata={"source": document.source, "title": document.title,
                           "start": s0, "section": section, "strategy": "heading",
-                          **document.metadata},
+                          **document.metadata, **_slide_meta(document, section)},
             ))
             packed.clear()
 
@@ -181,3 +195,111 @@ def chunk(document: Document, strategy: str = "heading", **kw) -> list[DocumentC
         tag_sections(document, chunks)
         return chunks
     raise ValueError(f"strategy must be 'heading' or 'fixed', got {strategy!r}")
+
+def load_metadata(path: str | Path) -> list[dict]:
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
+
+def _clean(text: str) -> str:
+    return " ".join(text.replace("\v", " ").split())
+
+def _table_to_markdown(table) -> str:
+    rows = [[_clean(c.text).replace("|", "\\|") for c in r.cells] for r in table.rows]
+    if not rows:
+        return ""
+    width = max(len(r) for r in rows)
+    rows = [r + [""] * (width - len(r)) for r in rows]
+    lines = ["| " + " | ".join(rows[0]) + " |", "|" + "---|" * width]
+    lines += ["| " + " | ".join(r) + " |" for r in rows[1:]]
+    return "\n".join(lines)
+
+def _iter_shapes(shapes):
+    """Shapes in reading order (top-to-bottom, left-to-right), groups flattened."""
+    from pptx.enum.shapes import MSO_SHAPE_TYPE
+    for sh in sorted(shapes, key=lambda s: (s.top or 0, s.left or 0)):
+        try:
+            is_group = sh.shape_type == MSO_SHAPE_TYPE.GROUP
+        except NotImplementedError:          # exotic shape types in python-pptx
+            is_group = False
+        if is_group:
+            yield from _iter_shapes(sh.shapes)
+        else:
+            yield sh
+
+
+def pptx_to_markdown(path: str | Path, notes_label: str = "Ghi chú") -> str:
+    """Convert a .pptx into markdown, one `## Slide N: <title>` section per slide.
+
+    - Title placeholder -> heading; body/subtitle paragraphs -> "- " bullets
+      (indented by level); free text boxes -> plain lines.
+    - Tables -> markdown tables (the heading chunker never splits them).
+    - Speaker notes -> a "<notes_label>: ..." paragraph INSIDE the slide's
+      section (not a heading), so notes stay in the same chunk and citation.
+    - Slide numbers are the real deck numbers (empty slides keep their number
+      but produce no chunk).
+    NOT handled: text inside pictures/charts/SmartArt (needs OCR); hidden
+    slides are included.
+    """
+    from pptx import Presentation          # lazy: only needed for .pptx corpora
+
+    prs = Presentation(str(path))
+    out: list[str] = []
+    for n, slide in enumerate(prs.slides, start=1):
+        title_shape = slide.shapes.title
+        title = _clean(title_shape.text_frame.text) if title_shape is not None else ""
+        blocks: list[str] = []
+        for sh in _iter_shapes(slide.shapes):
+            if title_shape is not None and sh.shape_id == title_shape.shape_id:
+                continue
+            if getattr(sh, "has_table", False) and sh.has_table:
+                md = _table_to_markdown(sh.table)
+                if md:
+                    blocks.append(md)
+            elif sh.has_text_frame:
+                lines = []
+                for p in sh.text_frame.paragraphs:
+                    text = _clean(p.text)
+                    if not text:
+                        continue
+                    if sh.is_placeholder or p.level > 0:
+                        lines.append("  " * p.level + "- " + text)
+                    else:
+                        lines.append(text)
+                if lines:
+                    blocks.append("\n".join(lines))
+        if slide.has_notes_slide and slide.notes_slide.notes_text_frame is not None:
+            notes = _clean(slide.notes_slide.notes_text_frame.text)
+            if notes:
+                blocks.append(f"{notes_label}: {notes}")
+        if not blocks and not title:
+            continue                         # truly empty slide
+        out.append(f"## Slide {n}: {title}" if title else f"## Slide {n}")
+        out.extend(blocks)
+    return "\n\n".join(out) + "\n"
+
+
+def read_source(path: str | Path) -> str:
+    """Return the text of a corpus file as markdown/plain text, by extension."""
+    ext = Path(path).suffix.lower()
+    if ext in (".md", ".txt"):
+        return Path(path).read_text(encoding="utf-8")
+    if ext == ".pptx":
+        return pptx_to_markdown(path)
+    raise ValueError(f"unsupported file type {ext!r} for {Path(path).name}; "
+                     f"supported: {', '.join(SUPPORTED_EXTENSIONS)}")
+
+
+def load_documents(docs_dir: str | Path, metadata_path: str | Path) -> list[Document]:
+    docs = []
+    for meta in load_metadata(metadata_path):
+        path = Path(docs_dir) / meta["file"]
+        docs.append(Document(
+            content=read_source(path), doc_id=meta["doc_id"], title=meta["title"],
+            source=meta["file"],
+            metadata={**{k: meta.get(k) for k in META_KEYS},
+                      "source_format": path.suffix.lower().lstrip(".")},
+        ))
+    return docs
+
+def chunk_corpus(docs_dir, metadata_path, strategy: str = "heading", **kw) -> list[DocumentChunk]:
+    return [c for d in load_documents(docs_dir, metadata_path) for c in chunk(d, strategy, **kw)]
