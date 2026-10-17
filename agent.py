@@ -61,39 +61,85 @@ async def default_call_tool(tool_name: str, args: dict[str, Any]) -> str:
 
     try:
         if tool_name == "calc_required_score":
-            midterm = float(args.get("midterm", 0))
-            w_mid = float(args.get("w_mid", 0.4))
-            w_final = float(args.get("w_final", 0.6))
-            target = float(args.get("target", 8.0))
-            req = (target - midterm * w_mid) / w_final
-            return json.dumps({"required_final_score": round(req, 2), "reachable": 0 <= req <= 10})
+            from rag.calc import calc_required_score
+            res = calc_required_score(
+                midterm=float(args.get("midterm", 0)),
+                w_mid=float(args.get("w_mid", 0.4)),
+                w_final=float(args.get("w_final", 0.6)),
+                target=float(args.get("target", 8.0)),
+            )
+            return json.dumps(res.get("data", res), ensure_ascii=False)
 
         elif tool_name == "calc_workload":
-            hpw = float(args.get("hours_per_week", 4))
-            fw = int(args.get("from_week", 1))
-            tw = int(args.get("to_week", 5))
-            total = hpw * (tw - fw + 1)
-            return json.dumps({"total_hours": round(total, 2)})
+            from rag.calc import calc_workload
+            res = calc_workload(
+                hours_per_week=float(args.get("hours_per_week", 4)),
+                from_week=int(args.get("from_week", 1)),
+                to_week=int(args.get("to_week", 5)),
+            )
+            return json.dumps(res.get("data", res), ensure_ascii=False)
 
         elif tool_name == "search_lesson_plan":
-            query = str(args.get("query", "")).lower()
-            if any(k in query for k in ["nấu ăn", "nau an", "ngoài lề", "lịch sử", "không có", "triết học"]):
+            from rag.retriever import search_lesson_plan
+            q = str(args.get("query", ""))
+            mode = str(args.get("mode", "hybrid"))
+            chunks = search_lesson_plan(query=q, mode=mode)
+            if not chunks:
                 return "[]"
-            return json.dumps([
-                {"doc_id": "DOC0001", "version": "1.0", "content": f"Bài học AIPR tuần 5: RAG Pipeline. Query: {args.get('query', '')}"}
-            ], ensure_ascii=False)
+            # Format chunks nicely for agent prompt
+            formatted = [
+                {
+                    "doc_id": c["doc_id"],
+                    "chunk_id": c["chunk_id"],
+                    "score": round(c["score"], 3),
+                    "content": c["text"],
+                }
+                for c in chunks
+            ]
+            return json.dumps(formatted, ensure_ascii=False)
 
         elif tool_name == "get_course_info":
-            return json.dumps({"course_id": args.get("course_id", "AIPR"), "w_mid": 0.4, "w_final": 0.6})
+            cat_file = Path(__file__).resolve().parent / "data" / "course_catalog.json"
+            cid = str(args.get("course_id", "AIPR")).upper()
+            if cat_file.exists():
+                cat = json.loads(cat_file.read_text(encoding="utf-8"))
+                if cid in cat:
+                    return json.dumps(cat[cid], ensure_ascii=False)
+            return json.dumps({"course_id": cid, "w_mid": 0.4, "w_final": 0.6}, ensure_ascii=False)
 
         elif tool_name == "create_study_plan_item":
-            sid = args.get("student_id", "sv01")
-            _study_plan_db.setdefault(sid, []).append(args)
-            return f"OK: added item {len(_study_plan_db[sid])}"
+            plan_file = Path(__file__).resolve().parent / "data" / "study_plan.json"
+            plan_file.parent.mkdir(parents=True, exist_ok=True)
+            plans = []
+            if plan_file.exists():
+                try:
+                    plans = json.loads(plan_file.read_text(encoding="utf-8"))
+                except Exception:
+                    plans = []
+            import uuid
+            new_item = {
+                "id": str(uuid.uuid4())[:8],
+                "student_id": str(args.get("student_id", "sv01")),
+                "course": str(args.get("course", "AIPR")),
+                "week": int(args.get("week", 1)),
+                "topic": str(args.get("topic", "")),
+                "hours": float(args.get("hours", 4.0)),
+            }
+            plans.append(new_item)
+            plan_file.write_text(json.dumps(plans, ensure_ascii=False, indent=2), encoding="utf-8")
+            return f"OK: added item id={new_item['id']} for {new_item['student_id']}"
 
         elif tool_name == "list_study_plan":
-            sid = args.get("student_id", "sv01")
-            return json.dumps(_study_plan_db.get(sid, []), ensure_ascii=False)
+            plan_file = Path(__file__).resolve().parent / "data" / "study_plan.json"
+            sid = str(args.get("student_id", "sv01"))
+            if not plan_file.exists():
+                return "[]"
+            try:
+                plans = json.loads(plan_file.read_text(encoding="utf-8"))
+                user_plans = [p for p in plans if p.get("student_id") == sid]
+                return json.dumps(user_plans, ensure_ascii=False)
+            except Exception:
+                return "[]"
 
         return f"Error: unknown tool {tool_name}"
     except Exception as exc:
