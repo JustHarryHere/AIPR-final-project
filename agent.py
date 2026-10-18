@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Optional
 
-from llm import USAGE, call_llm
+from llm import USAGE, call_llm, reset_usage
 from schemas import Action, parse_action
 
 MAX_STEPS = 8
@@ -195,6 +195,41 @@ async def default_call_tool(tool_name: str, args: dict[str, Any]) -> str:
         return f"Error: {exc}"
 
 
+def _print_tool_result(tool_name: str, result: str) -> None:
+    """Print concise, readable tool output while preserving full output in trace/messages."""
+    print(f"[TOOL RESULT] {tool_name}")
+    try:
+        parsed = json.loads(result)
+    except (TypeError, json.JSONDecodeError):
+        text = str(result).strip()
+        print(f"   {text[:500]}{'...' if len(text) > 500 else ''}")
+        return
+
+    if tool_name == "search_lesson_plan" and isinstance(parsed, list):
+        print(f"   Retrieved chunks: {len(parsed)}")
+        for i, item in enumerate(parsed[:5], 1):
+            if not isinstance(item, dict):
+                continue
+            content = ' '.join(str(item.get("content", "")).split())
+            if len(content) > 220:
+                content = content[:217] + "..."
+            print(f"   [{i}] doc={item.get('doc_id', '?')} | chunk={item.get('chunk_id', '?')} | score={item.get('score', '?')}")
+            if content:
+                print(f"       {content}")
+        if len(parsed) > 5:
+            print(f"   ... {len(parsed) - 5} result(s) omitted from terminal; full data is retained in trace.")
+    elif tool_name == "list_study_plan" and isinstance(parsed, list):
+        print(f"   Items found: {len(parsed)}")
+        for item in parsed[-3:]:
+            if isinstance(item, dict):
+                print(f"   - week={item.get('week', '?')} | topic={item.get('topic', '?')} | hours={item.get('hours', '?')} | id={item.get('id', '?')}")
+    elif isinstance(parsed, dict):
+        compact = json.dumps(parsed, ensure_ascii=False)
+        print(f"   {compact[:500]}{'...' if len(compact) > 500 else ''}")
+    else:
+        print(f"   {str(parsed)[:500]}")
+
+
 async def run_agent(
     question: str,
     call_tool_fn: Optional[Callable] = None,
@@ -250,7 +285,9 @@ async def run_agent(
         })
 
         if verbose:
-            print(f"[{step + 1}] {action.tool}({action.args}) → {result}")
+            print(f"[STEP {step + 1}/{MAX_STEPS}] Tool: {action.tool}")
+            print(f"[TOOL CALL] {json.dumps(action.args, ensure_ascii=False)}")
+            _print_tool_result(action.tool, result)
 
         # verify tool
         if verify and action.tool in WRITE_TOOLS:
@@ -270,7 +307,19 @@ async def run_agent(
             })
 
             if verbose:
-                print(f"[{step + 1}.verify] list_study_plan({{'student_id': '{student_id}'}}) → {check}  ← VERIFY")
+                print(f"[VERIFY] list_study_plan(student_id={student_id!r})")
+                try:
+                    verified_items = json.loads(check)
+                    verified = isinstance(verified_items, list) and any(
+                        item.get("student_id") == student_id
+                        and item.get("topic") == action.args.get("topic")
+                        and item.get("week") == action.args.get("week")
+                        for item in verified_items if isinstance(item, dict)
+                    )
+                except (TypeError, json.JSONDecodeError):
+                    verified = False
+                print("[VERIFY: PASS] Created item found in study plan." if verified else "[VERIFY: CHECK] Could not confirm exact item; inspect full trace.")
+                _print_tool_result("list_study_plan", check)
 
             messages.append({"role": "assistant", "content": content})
             messages.append({"role": "user", "content": f"{action.tool} → {result}\nVERIFY list_study_plan → {check}"})
@@ -285,6 +334,7 @@ async def run_agent(
 
 def run(question: str, verbose: bool = False, verify: bool = True, call_tool_fn: Optional[Callable] = None, qid: Optional[Any] = None) -> str:
     """Hàm đồng bộ để gọi agent từ CLI."""
+    reset_usage()
     return asyncio.run(run_agent(question, call_tool_fn=call_tool_fn, verbose=verbose, verify=verify, qid=qid))
 
 
