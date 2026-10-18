@@ -36,6 +36,7 @@ class Usage(TypedDict):
     prompt_tokens: int
     completion_tokens: int
     max_prompt: int
+    retries: int
 
 
 class AgentResult(TypedDict):

@@ -2,9 +2,7 @@
 .venv/
 __pycache__/
 *.pyc
-logs/*.jsonl
-!logs/.gitkeep
+
 /test*.py
-!tests/
-!tests/*.py
+
 data/study_plan.json

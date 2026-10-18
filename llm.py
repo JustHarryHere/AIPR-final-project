@@ -23,7 +23,7 @@ RETRIES = int(os.getenv("LLM_RETRIES", "4"))
 RETRY_STATUS = {429, 500, 502, 503, 504}
 TIMEOUT = float(os.getenv("LLM_TIMEOUT", "30.0"))
 
-USAGE: Usage = {"calls": 0, "prompt_tokens": 0, "completion_tokens": 0, "max_prompt": 0}
+USAGE: Usage = {"calls": 0, "prompt_tokens": 0, "completion_tokens": 0, "max_prompt": 0, "retries": 0}
 
 def reset_usage():
     for k in USAGE:
@@ -49,8 +49,9 @@ def call_llm(messages, tools=None, max_tokens=None):
             if attempt == RETRIES - 1 or (status is not None and status not in RETRY_STATUS):
                 raise                            # a real error: surface it, do not hide it
             wait = 5 * (attempt + 1)
-            print(f"[llm] HTTP {status or type(exc).__name__} - "
-                  f"retry {attempt + 1}/{RETRIES - 1} in {wait}s")
+            USAGE["retries"] += 1
+            print(f"[RETRY] HTTP {status or type(exc).__name__} - "
+                  f"attempt {attempt + 1}/{RETRIES - 1}; waiting {wait}s", flush=True)
             time.sleep(wait)
     USAGE["calls"] += 1
     USAGE["prompt_tokens"] += resp.usage.prompt_tokens
