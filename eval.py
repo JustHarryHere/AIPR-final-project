@@ -30,12 +30,21 @@ def load_testset() -> list[dict]:
     return items
 
 
-def load_corpus_context() -> str:
+def load_corpus_context(question: str = "") -> str:
+    if question:
+        try:
+            from rag.retriever import get_retriever
+            r = get_retriever()
+            res = r.search(question, top_k=3)
+            if res:
+                return "\n\n".join(f"[{x['source']}]\n{x['text']}" for x in res)
+        except Exception:
+            pass
     docs = []
     docs_dir = ROOT_DIR / "data" / "docs"
     if docs_dir.exists():
         for p in sorted(docs_dir.glob("*.md")):
-            docs.append(f"--- {p.name} ---\n" + p.read_text(encoding="utf-8"))
+            docs.append(f"--- {p.name} ---\n" + p.read_text(encoding="utf-8")[:800])
     return "\n\n".join(docs)
 
 
@@ -50,7 +59,7 @@ def call_judge_llm(question: str, answer: str, context: str = "") -> dict:
     try:
         from llm import call_llm
         if not context:
-            context = load_corpus_context()
+            context = load_corpus_context(question)
         prompt_tmpl = load_judge_prompt()
         prompt = prompt_tmpl.replace("{question}", question).replace("{answer}", answer).replace("{context}", context)
         messages = [{"role": "user", "content": prompt}]

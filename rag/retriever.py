@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections import defaultdict
 from pathlib import Path
 
@@ -82,12 +83,34 @@ class Retriever:
         self._load()
 
     def _load(self):
-        if not self.metadata_path.exists():
-            return
-        with open(self.metadata_path, "r", encoding="utf-8") as f:
-            self.metadata = json.load(f)
+        meta_by_file = {}
+        if self.metadata_path.exists():
+            with open(self.metadata_path, "r", encoding="utf-8") as f:
+                self.metadata = json.load(f)
+            meta_by_file = {m.get("file"): m for m in self.metadata if "file" in m}
+
+        # Tự động quét toàn bộ file .md trong thư mục data/docs/ (chuẩn cấu trúc bài lab AIPR)
+        for fpath in sorted(self.docs_dir.glob("*.md")):
+            fname = fpath.name
+            if fname not in meta_by_file:
+                # Nếu file .md mới chưa được đăng ký trong metadata.json, tự sinh metadata mặc định
+                default_meta = {
+                    "doc_id": f"doc_{fpath.stem}",
+                    "file": fname,
+                    "title": fpath.stem,
+                    "course_id": "AIPR",
+                    "doc_type": fpath.stem,
+                    "version": "1.0",
+                    "status": "official",
+                }
+                self.metadata.append(default_meta)
+                meta_by_file[fname] = default_meta
 
         self.active_doc_ids, _ = resolve_versions(self.metadata)
+        # Đảm bảo các file tự quét luôn nằm trong active_doc_ids để được tìm kiếm
+        for meta in self.metadata:
+            if meta.get("doc_id", "").startswith("doc_"):
+                self.active_doc_ids.add(meta["doc_id"])
 
         raw_chunks = []
         for meta in self.metadata:
@@ -95,16 +118,32 @@ class Retriever:
             if not fpath.exists():
                 continue
             text = fpath.read_text(encoding="utf-8")
-            # Lý do chọn chiến lược Chunking theo Heading Markdown (##):
-            # 1. Lesson plan và quy chế môn học có cấu trúc phân cấp tự nhiên theo từng tuần/mục độc lập (## Tuần 1, ## Tuần 2,...).
-            # 2. Cắt theo tiêu đề ## giúp mỗi chunk đại diện trọn vẹn cho 1 đơn vị chủ đề học tập, không bị cắt ngang giữa câu.
-            # 3. Kích thước mỗi chunk đạt mức tối ưu (100-300 tokens) để vừa đủ ngữ cảnh cho LLM grounding vừa tiết kiệm prompt token.
-            sections = text.split("\n## ")
-            for idx, sec in enumerate(sections):
-                content = sec if idx == 0 else "## " + sec
-                content = content.strip()
-                if not content:
+            
+            raw_sections = re.split(r"\n(?=#{2,3}\s)", text)
+            chunks_list = []
+            for s in raw_sections:
+                s = s.strip()
+                if not s:
                     continue
+                if len(s) > 1200:
+                    sub_paras = s.split("\n\n")
+                    cur = ""
+                    for p in sub_paras:
+                        p_clean = p.strip()
+                        if not p_clean:
+                            continue
+                        if len(cur) + len(p_clean) < 1200:
+                            cur = (cur + "\n\n" + p_clean).strip()
+                        else:
+                            if cur:
+                                chunks_list.append(cur)
+                            cur = p_clean
+                    if cur:
+                        chunks_list.append(cur)
+                else:
+                    chunks_list.append(s)
+
+            for idx, content in enumerate(chunks_list):
                 cid = f"{meta['doc_id']}_c{idx}"
                 raw_chunks.append(Chunk(
                     content=content,

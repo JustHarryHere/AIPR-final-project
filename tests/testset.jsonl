@@ -1,14 +1,14 @@
-{"id": 1, "question": "Tuần 1 môn AIPR học những kỹ thuật xử lý văn bản nào?", "category": "in_scope", "expected_answer": "Tokenization, Stemming, Lemmatization, Stopwords removal, BoW, TF-IDF"}
-{"id": 2, "question": "Các mô hình phân loại văn bản truyền thống được giới thiệu ở tuần mấy?", "category": "in_scope", "expected_answer": "Tuần 2 (Naive Bayes, Logistic Regression, SVM)"}
-{"id": 3, "question": "Mô hình nhúng dense embedding nào được đề cập trong tuần 3?", "category": "in_scope", "expected_answer": "Jina Embeddings v3, OpenAI text-embedding-3"}
-{"id": 4, "question": "Khái niệm Retrieval-Augmented Generation (RAG) được học ở tuần nào?", "category": "in_scope", "expected_answer": "Tuần 4"}
-{"id": 5, "question": "Nguyên lý hoạt động của thuật toán BM25 và các tham số k1, b nằm ở tuần mấy?", "category": "in_scope", "expected_answer": "Tuần 5"}
-{"id": 6, "question": "Thời lượng tự học khuyến nghị cho tuần 6 là bao nhiêu giờ?", "category": "in_scope", "expected_answer": "5 giờ/tuần"}
-{"id": 7, "question": "Vòng lặp ReAct của Agent gồm những thành phần cốt lõi nào?", "category": "in_scope", "expected_answer": "Thought, Action (JSON tool call), Observation"}
-{"id": 8, "question": "Theo quy chế đánh giá chính thức, trọng số điểm giữa kỳ và cuối kỳ môn AIPR là bao nhiêu?", "category": "in_scope", "expected_answer": "Giữa kỳ 40% (0.4), cuối kỳ 60% (0.6)"}
+{"id": 1, "question": "Tuần 1 môn AIPR học những cấu trúc dữ liệu Python nào để xử lý dữ liệu AI và dùng gì để mô hình hóa dữ liệu có kiểu?", "category": "in_scope", "expected_answer": "List, Tuple, Dictionary, Set, JSON và @dataclass"}
+{"id": 2, "question": "Trong tuần 2, kỹ thuật nào được sử dụng để nhận phản hồi từ LLM API theo từng token và các mã lỗi HTTP nào cần cơ chế retry?", "category": "in_scope", "expected_answer": "Kỹ thuật Streaming (Server-Sent Events) và retry các mã lỗi HTTP 429, 500, 502, 503, 504"}
+{"id": 3, "question": "Nội dung tuần 3 hướng dẫn thiết kế các dataclass nào để quản lý văn bản và độ đo khoảng cách nào dùng để so khớp vector?", "category": "in_scope", "expected_answer": "Document và DocumentChunk, độ đo Cosine Similarity"}
+{"id": 4, "question": "Tuần 4 giới thiệu những thành phần chính nào của một RAG pipeline hoàn chỉnh và cách xử lý khi không tìm thấy chunk phù hợp?", "category": "in_scope", "expected_answer": "Embed query, Search vector store, Build prompt, Call LLM, Return answer và sources; khi không có chunk phù hợp thì từ chối (no_answer)"}
+{"id": 5, "question": "Chất lượng câu trả lời của hệ thống RAG được đánh giá qua những chỉ số cốt lõi nào trong tuần 5 và framework nào được áp dụng?", "category": "in_scope", "expected_answer": "Faithfulness, Answer Relevance, Citation Verification và framework RAGAS"}
+{"id": 6, "question": "Vòng lặp ReAct của Agent trong tuần 6 gồm những bước chu kỳ nào và hỗ trợ những cơ chế bộ nhớ nào?", "category": "in_scope", "expected_answer": "Chu kỳ Thought -> Action -> Observation, bộ nhớ trượt (sliding-window) và bộ nhớ tóm tắt (summarization)"}
+{"id": 7, "question": "Theo thông tin môn học AIPR, môn học có bao nhiêu tín chỉ và những môn học nào là tiên quyết?", "category": "in_scope", "expected_answer": "3 tín chỉ, môn tiên quyết là Nhập môn Lập trình và Đại số tuyến tính"}
+{"id": 8, "question": "Trọng số điểm đánh giá giữa kỳ và cuối kỳ của môn học AIPR là bao nhiêu?", "category": "in_scope", "expected_answer": "Giữa kỳ 40% (0.4) và Cuối kỳ 60% (0.6)"}
 {"id": 9, "question": "Điểm giữa kỳ là 7.0, trọng số giữa kỳ 40%, cuối kỳ 60%, muốn đạt điểm tổng kết 8.0 thì cuối kỳ cần đạt mấy điểm?", "category": "calculation", "expected_answer": "8.67"}
-{"id": 10, "question": "Yêu cầu bắt buộc khi bảo vệ đồ án cuối kỳ môn AIPR chạy bằng lệnh gì?", "category": "in_scope", "expected_answer": "make setup && make demo"}
-{"id": 11, "question": "Hướng dẫn cách nấu phở bò gia truyền chuẩn vị Nam Định?", "category": "out_of_scope", "expected_answer": "no_answer"}
-{"id": 12, "question": "Học phí một tín chỉ của môn học AIPR năm nay là bao nhiêu tiền?", "category": "out_of_scope", "expected_answer": "no_answer"}
-{"id": 13, "question": "Lịch thi lại môn Triết học Mác Lênin vào ngày nào?", "category": "out_of_scope", "expected_answer": "no_answer"}
-{"id": 14, "question": "Thủ tục đăng ký tạm trú tại ký túc xá khu B như thế nào?", "category": "out_of_scope", "expected_answer": "no_answer"}
+{"id": 10, "question": "Nếu mỗi tuần sinh viên dành 4.0 giờ tự học, tổng thời lượng tự học từ tuần 1 đến tuần 6 là bao nhiêu giờ?", "category": "calculation", "expected_answer": "24.0 giờ"}
+{"id": 11, "question": "Hướng dẫn cách nấu món phở bò gia truyền chuẩn vị Nam Định?", "category": "out_of_scope", "expected_answer": "no_answer"}
+{"id": 12, "question": "Học phí một tín chỉ của chương trình cử nhân năm học 2026 là bao nhiêu tiền?", "category": "out_of_scope", "expected_answer": "no_answer"}
+{"id": 13, "question": "Lịch thi kết thúc học phần môn Triết học Mác - Lênin diễn ra vào ngày nào?", "category": "out_of_scope", "expected_answer": "no_answer"}
+{"id": 14, "question": "Thủ tục đăng ký tạm trú và hồ sơ xin cấp thẻ ra vào ký túc xá khu B như thế nào?", "category": "out_of_scope", "expected_answer": "no_answer"}
